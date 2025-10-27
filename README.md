@@ -35,7 +35,7 @@ Gets weather for 10 cities every 30 seconds and writes to InfluxDB. Includes dup
 ### 1. Start the Application
 
 ```bash
-docker compose up --build
+docker compose up
 ```
 
 This will:
