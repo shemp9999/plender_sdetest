@@ -1,0 +1,137 @@
+{
+    "current_condition": [
+        {
+            "FeelsLikeC": "19",
+            "FeelsLikeF": "67",
+            "cloudcover": "100",
+            "humidity": "88",
+            "localObsDateTime": "2025-10-27 05:33 PM",
+            "observation_time": "09:33 PM",
+            "precipInches": "0.0",
+            "precipMM": "0.0",
+            "pressure": "1010",
+            "pressureInches": "30",
+            "temp_C": "19",
+            "temp_F": "67",
+            "uvIndex": "0",
+            "visibility": "16",
+            "visibilityMiles": "9",
+            "weatherCode": "296",
+            "weatherDesc": [
+                {
+                    "value": "Light rain"
+                }
+            ],
+            "weatherIconUrl": [
+                {
+                    "value": ""
+                }
+            ],
+            "winddir16Point": "ENE",
+            "winddirDegree": "59",
+            "windspeedKmph": "15",
+            "windspeedMiles": "9"
+        }
+    ],
+    "nearest_area": [
+        {
+            "areaName": [
+                {
+                    "value": "Savannah"
+                }
+            ],
+            "country": [
+                {
+                    "value": "United States of America"
+                }
+            ],
+            "latitude": "32.083",
+            "longitude": "-81.100",
+            "population": "126119",
+            "region": [
+                {
+                    "value": "Georgia"
+                }
+            ],
+            "weatherUrl": [
+                {
+                    "value": ""
+                }
+            ]
+        }
+    ],
+    "request": [
+        {
+            "query": "Lat 32.08 and Lon -81.09",
+            "type": "LatLon"
+        }
+    ],
+    "weather": [
+        {
+            "astronomy": [
+                {
+                    "moon_illumination": "25",
+                    "moon_phase": "Waxing Crescent",
+                    "moonrise": "01:11 PM",
+                    "moonset": "11:00 PM",
+                    "sunrise": "07:38 AM",
+                    "sunset": "06:39 PM"
+                }
+            ],
+            "avgtempC": "18",
+            "avgtempF": "65",
+            "date": "2025-10-27",
+            "maxtempC": "22",
+            "maxtempF": "71",
+            "mintempC": "15",
+            "mintempF": "59",
+            "sunHour": "8.5",
+            "totalSnow_cm": "0.0",
+            "uvIndex": "0"
+        },
+        {
+            "astronomy": [
+                {
+                    "moon_illumination": "34",
+                    "moon_phase": "Waxing Crescent",
+                    "moonrise": "01:55 PM",
+                    "moonset": "No moonset",
+                    "sunrise": "07:38 AM",
+                    "sunset": "06:38 PM"
+                }
+            ],
+            "avgtempC": "15",
+            "avgtempF": "59",
+            "date": "2025-10-28",
+            "maxtempC": "16",
+            "maxtempF": "61",
+            "mintempC": "12",
+            "mintempF": "54",
+            "sunHour": "8.3",
+            "totalSnow_cm": "0.0",
+            "uvIndex": "0"
+        },
+        {
+            "astronomy": [
+                {
+                    "moon_illumination": "43",
+                    "moon_phase": "First Quarter",
+                    "moonrise": "02:33 PM",
+                    "moonset": "12:01 AM",
+                    "sunrise": "07:39 AM",
+                    "sunset": "06:37 PM"
+                }
+            ],
+            "avgtempC": "13",
+            "avgtempF": "56",
+            "date": "2025-10-29",
+            "maxtempC": "17",
+            "maxtempF": "62",
+            "mintempC": "10",
+            "mintempF": "50",
+            "sunHour": "9.8",
+            "totalSnow_cm": "0.0",
+            "uvIndex": "1"
+        }
+    ]
+}

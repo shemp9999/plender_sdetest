@@ -1,0 +1,31 @@
+# docker config for influx db + python
+services:
+  influxdb2:
+    image: influxdb:2
+    container_name: plender_influxdb2
+    ports:
+      - "8086:8086"
+    volumes:
+      - type: bind
+        source: ./influxdb2_data
+        target: /var/lib/influxdb2
+      - type: bind
+        source: ./influxdb2_config
+        target: /etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123!
+      - DOCKER_INFLUXDB_INIT_ORG=nflx
+      - DOCKER_INFLUXDB_INIT_BUCKET=default
+  sdetest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: plender_sdetest
+    volumes:
+      - ./app:/usr/src/app
+      - ./influxdb2_config:/usr/src/influxdb2_config
+    working_dir: /usr/src/app
+    depends_on:
+      - influxdb2
