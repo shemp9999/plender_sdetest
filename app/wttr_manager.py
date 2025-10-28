@@ -1,11 +1,43 @@
 import logging
 import requests
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 class Wttr:
 
     def __init__(self, api_url_template):
         self.api_url_template = api_url_template
+
+    def parse_observation_time(self, data, city_info):
+        """
+        Parse wttr.in observation time to proper UTC datetime.
+
+        wttr.in provides 'localObsDateTime' (e.g., "2025-10-28 10:57 AM") which is in
+        the city's local timezone. We convert it to UTC using the timezone from city_info.
+
+        Returns datetime object (not string) for InfluxDB.
+        """
+        try:
+            current_condition = data.get("current_condition", [{}])[0]
+            local_obs_str = current_condition.get("localObsDateTime")
+            city_tz = city_info.get("tz", "UTC")
+
+            # Parse local datetime string
+            local_dt = datetime.strptime(local_obs_str, "%Y-%m-%d %I:%M %p")
+
+            # Attach local timezone
+            local_dt = local_dt.replace(tzinfo=ZoneInfo(city_tz))
+
+            # Convert to UTC and return datetime object
+            utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
+
+            return utc_dt
+
+        except Exception as e:
+            city = city_info.get("city")
+            logging.error(f"WTTR     : Failed to parse timestamp for {city}: {e}")
+            return None
 
     def fetch_data(self, location_info):
         """Fetch weather report for a city."""

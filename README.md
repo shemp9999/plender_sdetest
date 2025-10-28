@@ -39,6 +39,7 @@ docker compose up
 ```
 
 This will:
+
 - Start InfluxDB container
 - Build and start the Python application container
 - Begin polling weather data every 30 seconds
@@ -125,7 +126,10 @@ docker compose down -v
 
 Configuration is stored in `app/settings.py`:
 
-- `CITY_DICTS` - List of cities to monitor (with country codes)
+- `CITY_DICTS` - List of cities to monitor with:
+  - `city` - City name (e.g., "Los Angeles")
+  - `country` - 3-letter ISO country code (e.g., "USA", "MEX", "CRI")
+  - `tz` - IANA timezone identifier (e.g., "America/Los_Angeles") for converting local observation times to UTC
 - `MEASUREMENTS` - 8 numeric fields to collect and store
 - `KELVIN_OFFSET` - Constant for Celsius to Kelvin conversion (273, matches whole-number precision from API)
 - `WTTR_URL_TEMPLATE` - Weather API endpoint (using j2 format)
@@ -227,6 +231,14 @@ Fetches 10 cities in parallel with ThreadPoolExecutor.
 
 Uses wttr.in's `j2` format instead of `j1` - 92% smaller payload (50KB → 4KB).
 
+### Timestamp Parsing
+
+wttr.in returns times in each city's local timezone. We convert to UTC using Python's built-in `zoneinfo` before storing in InfluxDB.
+
+Without conversion: LA at 8:28 AM would be stored as 8:28 AM UTC (wrong - should be 3:28 PM UTC).
+
+Uses static timezone mapping in settings.py. For hundreds of cities, could use geonames API to look up timezones programmatically.
+
 ## Troubleshooting
 
 ### Container Fails to Start
@@ -317,14 +329,16 @@ Python packages (see `app/requirements.txt`):
 
 ## Adding Cities
 
-Edit `app/settings.py`:
+Edit `app/settings.py` and add the city with its timezone:
 
 ```python
 CITY_DICTS = [
-    {"city": "Your City", "country": "US"},
+    {"city": "Your City", "country": "USA", "tz": "America/New_York"},
     # ... existing cities
 ]
 ```
+
+Use IANA timezone identifiers like "America/Los_Angeles" or "Europe/London". Find them at <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>.
 
 Restart the application:
 

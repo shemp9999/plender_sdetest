@@ -141,6 +141,16 @@ INFO - MAIN     : Cycle completed...
 
 39 edits across 3 files.
 
+### Timestamp Parsing
+
+Treated `localObsDateTime` as UTC. Wrong. It's local time. Los Angeles 8:28 AM stored as 8:28 AM UTC (actually 3:28 PM UTC). Bad timestamps.
+
+Tried manual timezone calculations. Messy. Date-crossing edge cases got complicated. Tried timezonefinder library - needs gcc for compilation. Failed in python:3-slim.
+
+Added timezone field to each city in settings. Used Python's built-in `zoneinfo` to convert local to UTC. Works. No external dependencies.
+
+Trade-off: manual config doesn't scale to hundreds of cities. For 10 cities, fine. Documented geonames API approach in comments for future scaling.
+
 ---
 
 ## What Works
