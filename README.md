@@ -125,10 +125,7 @@ docker compose down -v
 
 Configuration is stored in `app/settings.py`:
 
-- `CITY_DICTS` - List of cities to monitor (with country codes and timezones)
-  - `city` - City name (e.g., "Los Angeles")
-  - `country` - 3-letter ISO country code (e.g., "USA", "MEX", "CRI")
-  - `tz` - IANA timezone identifier (e.g., "America/Los_Angeles")
+- `CITY_DICTS` - List of cities to monitor (with country codes)
 - `MEASUREMENTS` - 8 numeric fields to collect and store
 - `KELVIN_OFFSET` - Constant for Celsius to Kelvin conversion (273, matches whole-number precision from API)
 - `WTTR_URL_TEMPLATE` - Weather API endpoint (using j2 format)
@@ -230,14 +227,6 @@ Fetches 10 cities in parallel with ThreadPoolExecutor.
 
 Uses wttr.in's `j2` format instead of `j1` - 92% smaller payload (50KB → 4KB).
 
-### Timestamp Parsing
-
-wttr.in provides `localObsDateTime` in the city's local timezone (e.g., "2025-10-28 10:57 AM"). The application converts this to UTC using Python's built-in `zoneinfo` module with IANA timezone identifiers from the configuration. This ensures accurate timestamps that capture the correct observation date, not just the time.
-
-**Why this matters:** If an observation occurred yesterday at 11:50 PM local time and we fetch it after midnight, we need the actual date from wttr.in, not today's date. The `localObsDateTime` field provides both date and time, which we convert to UTC for storage.
-
-**Limitation:** Timezones are statically configured in settings.py. For dynamic city lists, the system could be extended to use the geonames API to programmatically determine timezones from lat/lon coordinates.
-
 ## Troubleshooting
 
 ### Container Fails to Start
@@ -328,19 +317,14 @@ Python packages (see `app/requirements.txt`):
 
 ## Adding Cities
 
-Edit `app/settings.py` and add the city with its timezone:
+Edit `app/settings.py`:
 
 ```python
 CITY_DICTS = [
-    {"city": "Your City", "country": "USA", "tz": "America/New_York"},
+    {"city": "Your City", "country": "US"},
     # ... existing cities
 ]
 ```
-
-**Timezone notes:**
-- Use IANA timezone identifiers (e.g., "America/Los_Angeles", "Europe/London")
-- Find timezones at: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-- **Limitation:** Timezones are statically configured. For dynamic city lists, consider using the geonames API to programmatically determine timezones from coordinates (see comments in settings.py)
 
 Restart the application:
 
