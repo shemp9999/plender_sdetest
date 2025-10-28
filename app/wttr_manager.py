@@ -10,14 +10,7 @@ class Wttr:
         self.api_url_template = api_url_template
 
     def parse_observation_time(self, data, city_info):
-        """
-        Parse wttr.in observation time to proper UTC datetime.
-
-        wttr.in provides 'localObsDateTime' (e.g., "2025-10-28 10:57 AM") which is in
-        the city's local timezone. We convert it to UTC using the timezone from city_info.
-
-        Returns datetime object (not string) for InfluxDB.
-        """
+        """Parse wttr.in localObsDateTime from city timezone to UTC datetime."""
         try:
             current_condition = data.get("current_condition", [{}])[0]
             local_obs_str = current_condition.get("localObsDateTime")
@@ -29,8 +22,11 @@ class Wttr:
             # Attach local timezone
             local_dt = local_dt.replace(tzinfo=ZoneInfo(city_tz))
 
-            # Convert to UTC and return datetime object
+            # Convert to UTC
             utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
+
+            # Strip tzinfo (InfluxDB requires naive datetime)
+            utc_dt = utc_dt.replace(tzinfo=None)
 
             return utc_dt
 

@@ -160,6 +160,7 @@ Trade-off: manual config doesn't scale to hundreds of cities. For 10 cities, fin
 - Data model uses complete snapshots with atomic writes
 - Performance has 93% idle time with room to scale 15x
 - Docker setup starts with one command and handles async initialization
+- Docker health check ensures InfluxDB is ready before app starts
 
 ---
 
@@ -168,7 +169,7 @@ Trade-off: manual config doesn't scale to hundreds of cities. For 10 cities, fin
 - wttr.in reliability varies 60-100%, no fallback API or circuit breaker
 - Synchronous writes work for this scale, would need async for larger deployments
 - No graceful shutdown on SIGTERM
-- Observability limited to logs - no metrics endpoint or health checks
+- Observability limited to logs - no metrics endpoint or application health endpoint
 
 ---
 
@@ -176,7 +177,7 @@ Trade-off: manual config doesn't scale to hundreds of cities. For 10 cities, fin
 
 First priority:
 
-- Health check endpoint
+- Application health endpoint (Docker health check for InfluxDB startup is implemented)
 - Graceful shutdown
 - Prometheus metrics
 - Fallback weather API

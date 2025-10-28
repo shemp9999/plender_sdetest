@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 import configparser
 import settings
 
-from influxdb_client import Point
+from influxdb_client import Point, WritePrecision
 from influxdb_manager import InfluxDBClientManager
 from wttr_manager import Wttr
 
@@ -68,13 +68,13 @@ def _build_point(data, city_info, measurements, wttr):
     if timestamp_dt is None:
         return (None, [], city, None)
 
-    # For logging, convert to string
+    # Convert to ISO string for InfluxDB (used for both write and query)
     timestamp_str = timestamp_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     point = Point("weather_data") \
         .tag("city", city) \
         .tag("country", country) \
-        .time(timestamp_dt)
+        .time(timestamp_str, WritePrecision.NS)
 
     missing_fields = []
 
@@ -105,17 +105,11 @@ def _fetch_and_process_weather_data(wttr, influx_manager):
     successful_fetches = sum(1 for r in results if r is not None)
     logging.info(f"WTTR     : Fetched {successful_fetches}/{len(settings.CITY_DICTS)} weather report[s] in {fetch_duration:.2f} seconds.")
 
-    writes = 0
-    attempts = 0
     for city_info, data in zip(settings.CITY_DICTS, results):
         if data:
             point, missing_fields, city, timestamp = _build_point(data, city_info, settings.MEASUREMENTS, wttr)
             if point is not None:
-                attempts += 1
-                if _write_point(influx_manager, point, city, timestamp, missing_fields):
-                    writes += 1
-
-    # logging.info(f"INFLUXDB : Wrote {writes} new weather report[s].")
+                _write_point(influx_manager, point, city, timestamp, missing_fields)
 
 def _collect_weather_data(config):
     """Set up managers and run weather report collection cycle."""
@@ -139,7 +133,7 @@ def _collect_weather_data(config):
     influx_manager.close()
 
     duration = time.time() - start_time
-    logging.info(f"MAIN     : Completed weather report processing in {duration:.2f} seconds.")
+    logging.info(f"         : Completed weather report processing in {duration:.2f} seconds.")
 
 def main():
     config_path = settings.INFLUXDB_CONFIG

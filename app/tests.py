@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from datetime import datetime
 
 from main import _build_point, _write_point
 from influxdb_manager import InfluxDBClientManager
@@ -30,9 +31,7 @@ class TestWeatherDataProcessing(unittest.TestCase):
 
         # Mock wttr object with parse_observation_time method
         mock_wttr = MagicMock()
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-        mock_wttr.parse_observation_time.return_value = datetime(2025, 4, 21, 11, 55, tzinfo=ZoneInfo("UTC"))
+        mock_wttr.parse_observation_time.return_value = datetime(2025, 4, 21, 11, 55)
 
         point, missing_fields, city, timestamp = _build_point(data, city_info, measurements, mock_wttr)
 
@@ -92,9 +91,6 @@ class TestWeatherDataProcessing(unittest.TestCase):
 
     def test_timezone_conversion(self):
         """Test that timezone conversion from local to UTC works correctly."""
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-
         # Simulate LA observation at 8:28 AM PDT (should become 15:28 UTC)
         data = {
             "current_condition": [{
@@ -109,8 +105,8 @@ class TestWeatherDataProcessing(unittest.TestCase):
         self.assertIsNotNone(result)
         # Verify it's a datetime object
         self.assertIsInstance(result, datetime)
-        # Verify it's in UTC
-        self.assertEqual(result.tzinfo, ZoneInfo("UTC"))
+        # Verify it's a naive datetime (no timezone info - represents UTC)
+        self.assertIsNone(result.tzinfo)
         # Verify the time is correct (8:28 AM PDT = 15:28 UTC during DST)
         # Note: This test assumes DST is active on 2025-10-28
         self.assertEqual(result.hour, 15)

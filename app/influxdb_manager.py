@@ -47,9 +47,7 @@ class InfluxDBClientManager:
           |> limit(n: 1)
         '''
         result = self.client.query_api().query(org=self.org, query=query)
-
-        exists = len(result) > 0
-        return exists
+        return len(result) > 0
 
     def write_data(self, point):
         """Write data to InfluxDB."""
