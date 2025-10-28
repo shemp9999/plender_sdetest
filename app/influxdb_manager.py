@@ -36,19 +36,6 @@ class InfluxDBClientManager:
             logging.error(f"INFLUXDB : Failed to create bucket: {e}")
             return False
 
-    def data_exists(self, city, timestamp):
-        """Check if current weather report exists (we skip duplicates)."""
-        query = f'''
-        from(bucket: "{self.bucket}")
-          |> range(start: 0)
-          |> filter(fn: (r) => r._measurement == "weather_data")
-          |> filter(fn: (r) => r.city == "{city}")
-          |> filter(fn: (r) => r._time == time(v: "{timestamp}"))
-          |> limit(n: 1)
-        '''
-        result = self.client.query_api().query(org=self.org, query=query)
-        return len(result) > 0
-
     def write_data(self, point):
         """Write data to InfluxDB."""
         try:

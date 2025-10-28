@@ -24,7 +24,7 @@ This review documents the iterative development process, showing problem-solving
 - Includes logging at all stages (startup, fetching, writing, errors)
 - Includes unit tests with mocks for API and database operations
 - Fetches cities in parallel using ThreadPoolExecutor (10 workers)
-- Queries for duplicates before writing (idempotent, restart-safe)
+- Queries for duplicates before writing (removed - see Duplicate Detection Evolution)
 - Handles API failures, timeouts, missing data without crashing
 
 ---
@@ -151,11 +151,27 @@ Added timezone field to each city in settings. Used Python's built-in `zoneinfo`
 
 Trade-off: manual config doesn't scale to hundreds of cities. For 10 cities, fine. Documented geonames API approach in comments for future scaling.
 
+### Duplicate Detection Evolution
+
+Original implementation queried InfluxDB before writing to check if timestamp already existed. Flux query checked for existing measurement+city+timestamp combination.
+
+Problem: During runtime, queries became unreliable. Returned false negatives - claimed data didn't exist when it did. Suspected InfluxDB indexing delays. Result: noisy logs showing "Recorded" for every city every cycle, even with same timestamp.
+
+Realized InfluxDB handles duplicates via upsert. Writing same measurement+tags+timestamp overwrites previous point. Don't need to prevent writes.
+
+First iteration: Removed data_exists() query entirely. Simpler code, no query overhead, data integrity maintained. Problem: logs still noisy.
+
+Second iteration: Added in-memory timestamp tracking. Dictionary maps city → last_seen_timestamp. Only log "Recorded" for new timestamps. Duplicate timestamps still written (InfluxDB deduplicates) but logged at DEBUG level.
+
+About 15 lines of code. Dictionary persists across polling cycles, resets on restart.
+
+Added two tests: one for new timestamps (INFO log), one for duplicates (DEBUG log only).
+
 ---
 
 ## What Works
 
-- Duplicate detection prevents repeated data on restarts
+- Duplicate detection prevents repeated data on restarts (removed - see Duplicate Detection Evolution)
 - Error handling catches network failures, timeouts, bad timestamps
 - Data model uses complete snapshots with atomic writes
 - Performance has 93% idle time with room to scale 15x

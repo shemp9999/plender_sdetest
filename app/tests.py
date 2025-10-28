@@ -63,31 +63,59 @@ class TestWeatherDataProcessing(unittest.TestCase):
         self.assertEqual(len(missing_fields), 0)
 
     @patch('influxdb_manager.InfluxDBClientManager')
-    def test_write_point_data_exists(self, MockInfluxDBClientManager):
-        mock_manager = MockInfluxDBClientManager()
-        mock_manager.data_exists.return_value = True  # Data exists
-
-        from influxdb_client import Point
-        point = Point("weather_data").tag("city", "TestCity").field("temp", 20.0)
-
-        result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [])
-
-        mock_manager.write_data.assert_not_called()
-        self.assertFalse(result)
-
-    @patch('influxdb_manager.InfluxDBClientManager')
     def test_write_point_success(self, MockInfluxDBClientManager):
         mock_manager = MockInfluxDBClientManager()
-        mock_manager.data_exists.return_value = False
         mock_manager.write_data.return_value = True
 
         from influxdb_client import Point
         point = Point("weather_data").tag("city", "TestCity").field("temp", 20.0)
 
-        result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [])
+        last_seen = {}
+        result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
 
         mock_manager.write_data.assert_called_once()
         self.assertTrue(result)
+        self.assertEqual(last_seen["TestCity"], "2025-04-21T11:55:00Z")
+
+    @patch('influxdb_manager.InfluxDBClientManager')
+    def test_write_point_new_timestamp(self, MockInfluxDBClientManager):
+        """Test that new timestamps trigger INFO log and update last_seen."""
+        mock_manager = MockInfluxDBClientManager()
+        mock_manager.write_data.return_value = True
+
+        from influxdb_client import Point
+        point = Point("weather_data").tag("city", "TestCity").field("temp", 20.0)
+
+        last_seen = {}
+
+        with self.assertLogs(level='INFO') as log:
+            result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
+
+        self.assertTrue(result)
+        self.assertIn("Recorded TestCity", log.output[0])
+        self.assertEqual(last_seen["TestCity"], "2025-04-21T11:55:00Z")
+
+    @patch('influxdb_manager.InfluxDBClientManager')
+    def test_write_point_duplicate_timestamp(self, MockInfluxDBClientManager):
+        """Test that duplicate timestamps don't trigger INFO log."""
+        mock_manager = MockInfluxDBClientManager()
+        mock_manager.write_data.return_value = True
+
+        from influxdb_client import Point
+        point = Point("weather_data").tag("city", "TestCity").field("temp", 20.0)
+
+        # Simulate timestamp already seen
+        last_seen = {"TestCity": "2025-04-21T11:55:00Z"}
+
+        # Capture logs at INFO level - should NOT contain "Recorded" for duplicate
+        with self.assertLogs(level='DEBUG') as log:
+            result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
+
+        self.assertTrue(result)
+        # Check that DEBUG log contains "Re-wrote" message
+        self.assertIn("Re-wrote TestCity", ''.join(log.output))
+        # Timestamp should remain unchanged
+        self.assertEqual(last_seen["TestCity"], "2025-04-21T11:55:00Z")
 
     def test_timezone_conversion(self):
         """Test that timezone conversion from local to UTC works correctly."""

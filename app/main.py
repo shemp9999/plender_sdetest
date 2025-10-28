@@ -43,13 +43,19 @@ def _get_field_value(field_name, json_key, current_condition, nearest_area):
     else:
         return current_condition.get(json_key)
 
-def _write_point(influx_manager, point, city, timestamp, missing_fields):
-    """Write weather report to InfluxDB (skip if exists)."""
-    if influx_manager.data_exists(city, timestamp):
-        return False
+def _write_point(influx_manager, point, city, timestamp, missing_fields, last_seen):
+    """Write weather report to InfluxDB."""
+
+    # Check if this is a new timestamp for this city
+    is_new = last_seen.get(city) != timestamp
 
     if influx_manager.write_data(point):
-        logging.info(f"INFLUXDB : Recorded {city} weather report ({timestamp}).")
+        if is_new:
+            logging.info(f"INFLUXDB : Recorded {city} weather report ({timestamp}).")
+            last_seen[city] = timestamp
+        else:
+            logging.debug(f"INFLUXDB : Re-wrote {city} ({timestamp}) - same timestamp.")
+
         if missing_fields:
             logging.warning(f"INFLUXDB : Missing fields for {city}: {', '.join(missing_fields)}")
         return True
@@ -94,13 +100,13 @@ def _build_point(data, city_info, measurements, wttr):
 
     return (point, missing_fields, city, timestamp_str)
 
-def _fetch_and_process_weather_data(wttr, influx_manager):
+def _fetch_and_process_weather_data(wttr, influx_manager, last_seen_timestamps):
     """Fetch weather reports and write to InfluxDB."""
     fetch_start = time.time()
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(wttr.fetch_data, settings.CITY_DICTS))
-    
+
     fetch_duration = time.time() - fetch_start
     successful_fetches = sum(1 for r in results if r is not None)
     logging.info(f"WTTR     : Fetched {successful_fetches}/{len(settings.CITY_DICTS)} weather report[s] in {fetch_duration:.2f} seconds.")
@@ -109,9 +115,9 @@ def _fetch_and_process_weather_data(wttr, influx_manager):
         if data:
             point, missing_fields, city, timestamp = _build_point(data, city_info, settings.MEASUREMENTS, wttr)
             if point is not None:
-                _write_point(influx_manager, point, city, timestamp, missing_fields)
+                _write_point(influx_manager, point, city, timestamp, missing_fields, last_seen_timestamps)
 
-def _collect_weather_data(config):
+def _collect_weather_data(config, last_seen_timestamps):
     """Set up managers and run weather report collection cycle."""
     start_time = time.time()
 
@@ -128,7 +134,7 @@ def _collect_weather_data(config):
 
     wttr = Wttr(settings.WTTR_URL_TEMPLATE)
 
-    _fetch_and_process_weather_data(wttr, influx_manager)
+    _fetch_and_process_weather_data(wttr, influx_manager, last_seen_timestamps)
 
     influx_manager.close()
 
@@ -140,8 +146,10 @@ def main():
     wait_for_config(config_path)
     config = _load_config(config_path)
 
+    last_seen_timestamps = {}  # Track last timestamp per city for logging
+
     while True:
-        _collect_weather_data(config)
+        _collect_weather_data(config, last_seen_timestamps)
         time.sleep(30)
 
 if __name__ == "__main__":

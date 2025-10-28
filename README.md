@@ -8,7 +8,7 @@ A Python app that polls weather data from wttr.in every 30 seconds and stores it
 
 ## Overview
 
-Gets weather for 10 cities every 30 seconds and writes to InfluxDB. Includes duplicate detection to prevent data corruption and handles API failures.
+Gets weather for 10 cities every 30 seconds and writes to InfluxDB. Logs new observations and handles API failures.
 
 ## Architecture
 
@@ -120,7 +120,7 @@ docker compose down -v
 - **Polling interval:** 30 seconds
 - **Parallel fetching:** 10 concurrent requests
 - **Timeout:** 10 seconds per request
-- **Duplicate detection:** Prevents duplicate writes on restart
+- **Logging:** "Recorded" messages appear when wttr.in returns a new observation timestamp
 
 ## Configuration
 
@@ -181,8 +181,8 @@ docker compose run sdetest python -m unittest tests.py
 
 Tests cover:
 
-- Duplicate detection logic
-- Data write operations
+- Timestamp tracking logic (new vs duplicate timestamps)
+- Data write operations with logging behavior
 - API error handling (timeouts, HTTP failures)
 
 ## Error Handling
