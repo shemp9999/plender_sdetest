@@ -9,3 +9,6 @@ influxdb2_data/
 
 # OS
 .DS_Store
+
+# Other
+docs/

@@ -141,6 +141,27 @@ INFO - MAIN     : Cycle completed...
 
 39 edits across 3 files.
 
+### Timestamp Parsing
+
+Treated `localObsDateTime` as UTC. Wrong - it's in the city's local timezone. Los Angeles at 3 PM local stored as 3 PM UTC (actually 11 PM UTC). Bad data in database.
+
+Tried three approaches:
+
+**Manual timezone math:** Got messy fast. Calculating offsets, handling date-crossing. Fragile.
+
+**timezonefinder + pytz:** Lookup timezone from lat/long. Needs compilation (gcc, cmake). Failed in python:3-slim.
+
+**Static timezone + zoneinfo:** Add timezone to each city in settings. Use Python's built-in `zoneinfo` to convert local time to UTC. 15 lines. No dependencies. Works.
+
+```python
+from zoneinfo import ZoneInfo
+local_dt = datetime.strptime(local_obs_str, "%Y-%m-%d %I:%M %p")
+local_dt = local_dt.replace(tzinfo=ZoneInfo(city_info["tz"]))
+utc_dt = local_dt.astimezone(ZoneInfo("UTC"))
+```
+
+Trade-off: doesn't scale to hundreds of cities without manual work. For 10 fixed cities, static mapping works. Documented alternatives in code comments for scaling.
+
 ---
 
 ## What Works

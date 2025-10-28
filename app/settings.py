@@ -1,16 +1,19 @@
 # Cities to monitor for weather data
 # Note: Using 3-letter ISO country codes (USA, MEX, CRI)
+# LIMITATION: Timezones are statically configured per city.
+# consider using geonames API (http://api.geonames.org/timezoneJSON) to
+# determine timezone from lat/long cooredinates.
 CITY_DICTS = [
-    {"city": "Savannah", "country": "USA"},
-    {"city": "Los Angeles", "country": "USA"},
-    {"city": "Los Gatos", "country": "USA"},
-    {"city": "Olympia", "country": "USA"},
-    {"city": "Mulege", "country": "MEX"},
-    {"city": "Philadelphia", "country": "USA"},
-    {"city": "Boulder", "country": "USA"},
-    {"city": "San Diego", "country": "USA"},
-    {"city": "San Francisco", "country": "USA"},
-    {"city": "Tamarindo", "country": "CRI"}
+    {"city": "Savannah", "country": "USA", "tz": "America/New_York"},
+    {"city": "Los Angeles", "country": "USA", "tz": "America/Los_Angeles"},
+    {"city": "Los Gatos", "country": "USA", "tz": "America/Los_Angeles"},
+    {"city": "Olympia", "country": "USA", "tz": "America/Los_Angeles"},
+    {"city": "Mulege", "country": "MEX", "tz": "America/Mazatlan"},
+    {"city": "Philadelphia", "country": "USA", "tz": "America/New_York"},
+    {"city": "Boulder", "country": "USA", "tz": "America/Denver"},
+    {"city": "San Diego", "country": "USA", "tz": "America/Los_Angeles"},
+    {"city": "San Francisco", "country": "USA", "tz": "America/Los_Angeles"},
+    {"city": "Tamarindo", "country": "CRI", "tz": "America/Costa_Rica"}
 ]
 
 # Field mappings: field name -> wttr.in JSON key
