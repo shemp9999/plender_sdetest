@@ -141,6 +141,16 @@ INFO - MAIN     : Cycle completed...
 
 39 edits across 3 files.
 
+### Timestamp Parsing
+
+Treated `localObsDateTime` as UTC. Wrong. It's local time. Los Angeles 8:28 AM stored as 8:28 AM UTC (actually 3:28 PM UTC). Bad timestamps.
+
+Tried manual timezone calculations. Messy. Date-crossing edge cases got complicated. Tried timezonefinder library - needs gcc for compilation. Failed in python:3-slim.
+
+Added timezone field to each city in settings. Used Python's built-in `zoneinfo` to convert local to UTC. Works. No external dependencies.
+
+Trade-off: manual config doesn't scale to hundreds of cities. For 10 cities, fine. Documented geonames API approach in comments for future scaling.
+
 ---
 
 ## What Works
@@ -150,6 +160,7 @@ INFO - MAIN     : Cycle completed...
 - Data model uses complete snapshots with atomic writes
 - Performance has 93% idle time with room to scale 15x
 - Docker setup starts with one command and handles async initialization
+- Docker health check ensures InfluxDB is ready before app starts
 
 ---
 
@@ -158,7 +169,7 @@ INFO - MAIN     : Cycle completed...
 - wttr.in reliability varies 60-100%, no fallback API or circuit breaker
 - Synchronous writes work for this scale, would need async for larger deployments
 - No graceful shutdown on SIGTERM
-- Observability limited to logs - no metrics endpoint or health checks
+- Observability limited to logs - no metrics endpoint or application health endpoint
 
 ---
 
@@ -166,7 +177,7 @@ INFO - MAIN     : Cycle completed...
 
 First priority:
 
-- Health check endpoint
+- Application health endpoint (Docker health check for InfluxDB startup is implemented)
 - Graceful shutdown
 - Prometheus metrics
 - Fallback weather API

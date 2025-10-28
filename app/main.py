@@ -1,7 +1,6 @@
 import os
 import logging
 import time
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 import configparser
@@ -57,24 +56,25 @@ def _write_point(influx_manager, point, city, timestamp, missing_fields):
 
     return False
     
-def _build_point(data, city_info, measurements):
+def _build_point(data, city_info, measurements, wttr):
     """Transform weather report for InfluxDB."""
     city = city_info["city"]
     country = city_info["country"]
     current_condition = data.get("current_condition", [{}])[0]
     nearest_area = data.get("nearest_area", [{}])[0]
 
-    try:
-        timestamp_str = current_condition.get("localObsDateTime")
-        timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %I:%M %p').isoformat() + 'Z'
-    except (ValueError, AttributeError, TypeError) as e:
-        logging.error(f"WTTR     : Invalid timestamp for {city}: {timestamp_str} - {e}")
+    # Parse observation timestamp (returns datetime object)
+    timestamp_dt = wttr.parse_observation_time(data, city_info)
+    if timestamp_dt is None:
         return (None, [], city, None)
+
+    # Convert to ISO string for InfluxDB (used for both write and query)
+    timestamp_str = timestamp_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     point = Point("weather_data") \
         .tag("city", city) \
         .tag("country", country) \
-        .time(timestamp, WritePrecision.NS)
+        .time(timestamp_str, WritePrecision.NS)
 
     missing_fields = []
 
@@ -92,7 +92,7 @@ def _build_point(data, city_info, measurements):
             logging.warning(f"WTTR     : Measurement '{field_name}' not found for {city}.")
             missing_fields.append(field_name)
 
-    return (point, missing_fields, city, timestamp)
+    return (point, missing_fields, city, timestamp_str)
 
 def _fetch_and_process_weather_data(wttr, influx_manager):
     """Fetch weather reports and write to InfluxDB."""
@@ -105,17 +105,11 @@ def _fetch_and_process_weather_data(wttr, influx_manager):
     successful_fetches = sum(1 for r in results if r is not None)
     logging.info(f"WTTR     : Fetched {successful_fetches}/{len(settings.CITY_DICTS)} weather report[s] in {fetch_duration:.2f} seconds.")
 
-    writes = 0
-    attempts = 0
     for city_info, data in zip(settings.CITY_DICTS, results):
         if data:
-            point, missing_fields, city, timestamp = _build_point(data, city_info, settings.MEASUREMENTS)
+            point, missing_fields, city, timestamp = _build_point(data, city_info, settings.MEASUREMENTS, wttr)
             if point is not None:
-                attempts += 1
-                if _write_point(influx_manager, point, city, timestamp, missing_fields):
-                    writes += 1
-
-    # logging.info(f"INFLUXDB : Wrote {writes} new weather report[s].")
+                _write_point(influx_manager, point, city, timestamp, missing_fields)
 
 def _collect_weather_data(config):
     """Set up managers and run weather report collection cycle."""
@@ -139,7 +133,7 @@ def _collect_weather_data(config):
     influx_manager.close()
 
     duration = time.time() - start_time
-    logging.info(f"MAIN     : Completed weather report processing in {duration:.2f} seconds.")
+    logging.info(f"         : Completed weather report processing in {duration:.2f} seconds.")
 
 def main():
     config_path = settings.INFLUXDB_CONFIG

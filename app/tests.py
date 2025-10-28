@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from datetime import datetime
 
 from main import _build_point, _write_point
 from influxdb_manager import InfluxDBClientManager
@@ -20,7 +21,7 @@ class TestWeatherDataProcessing(unittest.TestCase):
                 "longitude": "56.78"
             }]
         }
-        city_info = {"city": "TestCity", "country": "TestCountry"}
+        city_info = {"city": "TestCity", "country": "TestCountry", "tz": "UTC"}
         measurements = {
             "temp_celsius": "temp_C",
             "temp_kelvin": "temp_K",
@@ -28,7 +29,11 @@ class TestWeatherDataProcessing(unittest.TestCase):
             "pressure": "pressureInches"
         }
 
-        point, missing_fields, city, timestamp = _build_point(data, city_info, measurements)
+        # Mock wttr object with parse_observation_time method
+        mock_wttr = MagicMock()
+        mock_wttr.parse_observation_time.return_value = datetime(2025, 4, 21, 11, 55)
+
+        point, missing_fields, city, timestamp = _build_point(data, city_info, measurements, mock_wttr)
 
         self.assertIsNotNone(point)
         self.assertEqual(city, "TestCity")
@@ -43,10 +48,14 @@ class TestWeatherDataProcessing(unittest.TestCase):
             }],
             "nearest_area": [{"latitude": "12.34"}]
         }
-        city_info = {"city": "TestCity", "country": "TestCountry"}
+        city_info = {"city": "TestCity", "country": "TestCountry", "tz": "UTC"}
         measurements = {"temp_celsius": "temp_C"}
 
-        point, missing_fields, city, timestamp = _build_point(data, city_info, measurements)
+        # Mock wttr object that returns None for invalid timestamp
+        mock_wttr = MagicMock()
+        mock_wttr.parse_observation_time.return_value = None
+
+        point, missing_fields, city, timestamp = _build_point(data, city_info, measurements, mock_wttr)
 
         self.assertIsNone(point)
         self.assertEqual(city, "TestCity")
@@ -80,10 +89,36 @@ class TestWeatherDataProcessing(unittest.TestCase):
         mock_manager.write_data.assert_called_once()
         self.assertTrue(result)
 
+    def test_timezone_conversion(self):
+        """Test that timezone conversion from local to UTC works correctly."""
+        # Simulate LA observation at 8:28 AM PDT (should become 15:28 UTC)
+        data = {
+            "current_condition": [{
+                "localObsDateTime": "2025-10-28 08:28 AM"
+            }]
+        }
+        city_info = {"city": "Los Angeles", "country": "USA", "tz": "America/Los_Angeles"}
+
+        wttr = Wttr("http://wttr.in/{city},{country}?format=j2")
+        result = wttr.parse_observation_time(data, city_info)
+
+        self.assertIsNotNone(result)
+        # Verify it's a datetime object
+        self.assertIsInstance(result, datetime)
+        # Verify it's a naive datetime (no timezone info - represents UTC)
+        self.assertIsNone(result.tzinfo)
+        # Verify the time is correct (8:28 AM PDT = 15:28 UTC during DST)
+        # Note: This test assumes DST is active on 2025-10-28
+        self.assertEqual(result.hour, 15)
+        self.assertEqual(result.minute, 28)
+
     @patch('requests.get')
     def test_wttr_fetch_data(self, mock_get):
         mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"current_condition": [{"temp_C": "20"}]}
+        mock_get.return_value.json.return_value = {
+            "current_condition": [{"temp_C": "20"}],
+            "nearest_area": [{"areaName": [{"value": "TestCity"}]}]
+        }
         wttr = Wttr("http://wttr.in/{city},{country}?format=j1")
         city_info = {"city": "TestCity", "country": "TestCountry"}
         data = wttr.fetch_data(city_info)
