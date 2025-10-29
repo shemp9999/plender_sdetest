@@ -74,12 +74,12 @@ class TestWeatherDataProcessing(unittest.TestCase):
         result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
 
         mock_manager.write_data.assert_called_once()
-        self.assertTrue(result)
+        self.assertEqual(result, "TestCity")  # Returns city name for new timestamp
         self.assertEqual(last_seen["TestCity"], "2025-04-21T11:55:00Z")
 
     @patch('influxdb_manager.InfluxDBClientManager')
     def test_write_point_new_timestamp(self, MockInfluxDBClientManager):
-        """Test that new timestamps trigger INFO log and update last_seen."""
+        """Test that new timestamps return city name and update last_seen."""
         mock_manager = MockInfluxDBClientManager()
         mock_manager.write_data.return_value = True
 
@@ -87,17 +87,14 @@ class TestWeatherDataProcessing(unittest.TestCase):
         point = Point("weather_data").tag("city", "TestCity").field("temp", 20.0)
 
         last_seen = {}
+        result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
 
-        with self.assertLogs(level='INFO') as log:
-            result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
-
-        self.assertTrue(result)
-        self.assertIn("Recorded TestCity", log.output[0])
+        self.assertEqual(result, "TestCity")  # Returns city name for summary collection
         self.assertEqual(last_seen["TestCity"], "2025-04-21T11:55:00Z")
 
     @patch('influxdb_manager.InfluxDBClientManager')
     def test_write_point_duplicate_timestamp(self, MockInfluxDBClientManager):
-        """Test that duplicate timestamps don't trigger INFO log."""
+        """Test that duplicate timestamps return None and log at DEBUG level."""
         mock_manager = MockInfluxDBClientManager()
         mock_manager.write_data.return_value = True
 
@@ -107,11 +104,11 @@ class TestWeatherDataProcessing(unittest.TestCase):
         # Simulate timestamp already seen
         last_seen = {"TestCity": "2025-04-21T11:55:00Z"}
 
-        # Capture logs at INFO level - should NOT contain "Recorded" for duplicate
+        # Capture logs at DEBUG level
         with self.assertLogs(level='DEBUG') as log:
             result = _write_point(mock_manager, point, "TestCity", "2025-04-21T11:55:00Z", [], last_seen)
 
-        self.assertTrue(result)
+        self.assertIsNone(result)  # Returns None for duplicate timestamp
         # Check that DEBUG log contains "Re-wrote" message
         self.assertIn("Re-wrote TestCity", ''.join(log.output))
         # Timestamp should remain unchanged

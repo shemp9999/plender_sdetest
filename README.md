@@ -57,17 +57,25 @@ docker logs -f plender_sdetest
 You should see something like:
 
 ```text
-INFO -          : Beginning weather report processing.
-INFO - WTTR     : Fetched 10/10 weather report[s] in 5.24 seconds.
-INFO - INFLUXDB : Recorded Los Angeles weather report (2025-10-27T10:46:00Z).
-INFO -          : Completed weather report processing in 5.32 seconds.
+INFO - INFLUXDB : Configuration file '/usr/src/influxdb2_config/influx-configs' loaded.
+INFO -          : Cities: 10/10 | Fetch:    482.4ms | Transform:    1.8ms | Record:   17.4ms | Total:    506.4ms ( 1.7%) | Recorded: Savannah, Los Angeles, Los Gatos, Olympia, Mulege, Philadelphia, Boulder, San Diego, San Francisco, Tamarindo
+INFO -          : Cities: 10/10 | Fetch:    352.5ms | Transform:    1.0ms | Record:   25.9ms | Total:    393.2ms ( 1.3%)
+INFO -          : Cities: 10/10 | Fetch:    734.3ms | Transform:    0.8ms | Record:   25.0ms | Total:    782.9ms ( 2.6%) | Recorded: Boulder
 ```
 
-If there are failures, you'll see:
+The status line shows:
+- **Cities: 10/10** - Successful fetches out of total (will show 8/10 if 2 cities timeout)
+- **Fetch** - Time to fetch all cities in parallel (milliseconds)
+- **Transform** - Time to parse and build InfluxDB points (milliseconds)
+- **Record** - Time to write all points to InfluxDB (milliseconds)
+- **Total** - Complete cycle time with budget percentage (% of 30s cycle used)
+- **Recorded** - Which cities had new observation timestamps (only shown when new data is recorded)
+
+If there are failures, you'll see error logs before the status line:
 
 ```text
 ERROR - WTTR     : Timeout for Tamarindo after 10.0s - http://wttr.in/Tamarindo,CRI?format=j2
-INFO - WTTR      : Fetched 9/10 weather report[s] in 10.15 seconds.
+INFO -          : Cities: 9/10 | Fetch:  10153.2ms | Transform:    0.8ms | Record:   24.1ms | Total:  10195.6ms (34.0%)
 ```
 
 ### 3. Access InfluxDB
@@ -117,10 +125,11 @@ docker compose down -v
 
 ### Collection Frequency
 
-- **Polling interval:** 30 seconds
+- **Polling interval:** 30 seconds (work typically uses 1-3% of cycle, 97-99% sleeping)
 - **Parallel fetching:** 10 concurrent requests
 - **Timeout:** 10 seconds per request
-- **Logging:** "Recorded" messages appear when wttr.in returns a new observation timestamp
+- **Status logging:** Single-line summary shows timing breakdown (Fetch/Transform/Record/Total) and budget percentage
+- **Recording:** City names appear in "Recorded:" list when wttr.in returns a new observation timestamp
 
 ## Configuration
 

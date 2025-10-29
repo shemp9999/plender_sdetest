@@ -167,6 +167,24 @@ About 15 lines of code. Dictionary persists across polling cycles, resets on res
 
 Added two tests: one for new timestamps (INFO log), one for duplicates (DEBUG log only).
 
+### Summary Logging
+
+After timestamp tracking, logs were clean but lacked operational visibility. Couldn't see timing breakdown or identify performance bottlenecks without parsing multiple log lines.
+
+Added single-line status showing complete cycle:
+
+```text
+: Cities: 10/10 | Fetch:    482.4ms | Transform:    1.8ms | Record:   17.4ms | Total:    506.4ms ( 1.7%) | Recorded: [cities]
+```
+
+Added timing instrumentation around each phase (fetch/transform/record). Tracks successful city count from `len(points_to_write)` - handles timeouts by showing 8/10 if 2 cities fail. Budget percentage shows what percent of 30-second cycle was used for work.
+
+Fixed-width formatting keeps columns aligned as timing values vary. All metrics in milliseconds for consistency.
+
+Performance tracking shows Fetch dominates (300-1800ms), Transform and Record are fast (under 30ms). Budget typically 1-3% of cycle - system has 97-99% idle time. Can identify slow cycles or wttr.in issues immediately.
+
+Modified `_fetch_and_process_weather_data()` to return successful city count. No test changes needed.
+
 ---
 
 ## What Works

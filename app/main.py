@@ -44,23 +44,27 @@ def _get_field_value(field_name, json_key, current_condition, nearest_area):
         return current_condition.get(json_key)
 
 def _write_point(influx_manager, point, city, timestamp, missing_fields, last_seen):
-    """Write weather report to InfluxDB."""
-
+    """ 
+    Write weather report to InfluxDB. 
+    Returns city name if new timestamp recorded, None otherwise.
+    """
     # Check if this is a new timestamp for this city
     is_new = last_seen.get(city) != timestamp
 
     if influx_manager.write_data(point):
         if is_new:
-            logging.info(f"INFLUXDB : Recorded {city} weather report ({timestamp}).")
             last_seen[city] = timestamp
+            if missing_fields:
+                logging.warning(f"INFLUXDB : Missing fields for {city}: {', '.join(missing_fields)}")
+            return city  # Return city name for summary collection
         else:
             logging.debug(f"INFLUXDB : Re-wrote {city} ({timestamp}) - same timestamp.")
 
         if missing_fields:
             logging.warning(f"INFLUXDB : Missing fields for {city}: {', '.join(missing_fields)}")
-        return True
+        return None
 
-    return False
+    return None
     
 def _build_point(data, city_info, measurements, wttr):
     """Transform weather report for InfluxDB."""
@@ -101,21 +105,36 @@ def _build_point(data, city_info, measurements, wttr):
     return (point, missing_fields, city, timestamp_str)
 
 def _fetch_and_process_weather_data(wttr, influx_manager, last_seen_timestamps):
-    """Fetch weather reports and write to InfluxDB."""
+    """
+    Fetch weather reports and write to InfluxDB. 
+    Returns timing metrics, successful city count, and recorded cities.
+    """
+    # Fetch phase
     fetch_start = time.time()
-
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(wttr.fetch_data, settings.CITY_DICTS))
-
     fetch_duration = time.time() - fetch_start
-    successful_fetches = sum(1 for r in results if r is not None)
-    logging.info(f"WTTR     : Fetched {successful_fetches}/{len(settings.CITY_DICTS)} weather report[s] in {fetch_duration:.2f} seconds.")
 
+    # Transform phase
+    transform_start = time.time()
+    points_to_write = []
     for city_info, data in zip(settings.CITY_DICTS, results):
         if data:
             point, missing_fields, city, timestamp = _build_point(data, city_info, settings.MEASUREMENTS, wttr)
             if point is not None:
-                _write_point(influx_manager, point, city, timestamp, missing_fields, last_seen_timestamps)
+                points_to_write.append((point, city, timestamp, missing_fields))
+    transform_duration = time.time() - transform_start
+
+    # Record phase
+    record_start = time.time()
+    recorded_cities = []
+    for point, city, timestamp, missing_fields in points_to_write:
+        recorded_city = _write_point(influx_manager, point, city, timestamp, missing_fields, last_seen_timestamps)
+        if recorded_city:
+            recorded_cities.append(recorded_city)
+    record_duration = time.time() - record_start
+
+    return fetch_duration, transform_duration, record_duration, len(points_to_write), recorded_cities
 
 def _collect_weather_data(config, last_seen_timestamps):
     """Set up managers and run weather report collection cycle."""
@@ -134,12 +153,29 @@ def _collect_weather_data(config, last_seen_timestamps):
 
     wttr = Wttr(settings.WTTR_URL_TEMPLATE)
 
-    _fetch_and_process_weather_data(wttr, influx_manager, last_seen_timestamps)
+    fetch_duration, transform_duration, record_duration, successful_cities, recorded_cities = _fetch_and_process_weather_data(
+        wttr, influx_manager, last_seen_timestamps
+    )
 
     influx_manager.close()
 
-    duration = time.time() - start_time
-    logging.info(f"         : Completed weather report processing in {duration:.2f} seconds.")
+    # Build summary line
+    total_duration = time.time() - start_time
+    budget_pct = (total_duration / 30.0) * 100
+
+    # Format with fixed-width fields for alignment: 
+    # Cities: 10/10 | Fetch: 340.8ms | Transform:  0.5ms | Record: 23.6ms | Total:  378.7ms (1.3%) | Recorded: [cities]
+    summary = f"         : Cities: {successful_cities:2d}/{len(settings.CITY_DICTS)} | "
+    summary += f"Fetch: {fetch_duration * 1000:8.1f}ms | "
+    summary += f"Transform: {transform_duration * 1000:6.1f}ms | "
+    summary += f"Record: {record_duration * 1000:6.1f}ms | "
+    summary += f"Total: {total_duration * 1000:8.1f}ms ({budget_pct:4.1f}%)"
+
+    # Add recorded cities if any
+    if recorded_cities:
+        summary += f" | Recorded: {', '.join(recorded_cities)}"
+
+    logging.info(summary)
 
 def main():
     config_path = settings.INFLUXDB_CONFIG
